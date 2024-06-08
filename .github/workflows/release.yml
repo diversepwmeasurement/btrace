@@ -1,59 +1,73 @@
-on:
-  push:
-    tags:
-      - 'v*'
-
-name: Create Release
-
 defaults:
   run:
     shell: bash
-
 jobs:
   build:
     name: Create Release
-    runs-on: ubuntu-latest
+    runs-on: self-hosted
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-      - name: Branch name
-        id: branch_name
-        run: |
-          echo ::set-output name=SOURCE_NAME::${GITHUB_REF#refs/*/}
-          echo ::set-output name=SOURCE_BRANCH::${GITHUB_REF#refs/heads/}
-          echo ::set-output name=SOURCE_TAG::${GITHUB_REF#refs/tags/}
-      - name: Set up Java
-        uses: actions/setup-java@v4
-        with:
-          java-version: 11
-          distribution: temurin
-      - name: Build artifacts
-        run: ./gradlew :btrace-dist:build
-      - name: Create Release
-        id: create_release
-        uses: softprops/action-gh-release@v2
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          draft: true
-          prerelease: false
-          files: |
-            btrace-dist/build/distributions/btrace-${{ steps.branch_name.outputs.SOURCE_TAG }}-bin.tar.gz
-            btrace-dist/build/distributions/btrace-${{ steps.branch_name.outputs.SOURCE_TAG }}-bin.zip
-            btrace-dist/build/distributions/btrace-${{ steps.branch_name.outputs.SOURCE_TAG }}-sdkman-bin.zip
-      - name: Deploy Maven
-        id: deploy_maven
-        env:
-          GPG_SIGNING_KEY: ${{ secrets.GPG_SIGNING_KEY }}
-          GPG_SIGNING_PWD: ${{ secrets.GPG_SIGNING_PWD }}
-          BTRACE_SONATYPE_USER: ${{ secrets.BTRACE_SONATYPE_USER }}
-          BTRACE_SONATYPE_PWD: ${{ secrets.BTRACE_SONATYPE_PWD }}
-        run: |
-          ./gradlew :btrace-dist:publishAllPublicationsToMavenRepository
-      - name: Update SDKMan!
-        id: update_sdkman
-        env:
-          SKDMAN_API_KEY: ${{ secrets.SDKMAN_KEY }}
-          SDKMAN_API_TOKEN: ${{ secrets.SDKMAN_TOKEN }}
-        run: |
-          ./gradlew :btrace-dist:sdkMinorRelease
+    - continue-on-error: true
+      name: Checkout code
+      uses: actions/checkout@v4
+    - continue-on-error: true
+      id: branch_name
+      name: Branch name
+      run: 'echo ::set-output name=SOURCE_NAME::${GITHUB_REF#refs/*/}
+
+        echo ::set-output name=SOURCE_BRANCH::${GITHUB_REF#refs/heads/}
+
+        echo ::set-output name=SOURCE_TAG::${GITHUB_REF#refs/tags/}
+
+        '
+    - continue-on-error: true
+      name: Set up Java
+      uses: actions/setup-java@v4
+      with:
+        distribution: temurin
+        java-version: 11
+    - continue-on-error: true
+      name: Build artifacts
+      run: ./gradlew :btrace-dist:build
+    - continue-on-error: true
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      id: create_release
+      name: Create Release
+      uses: softprops/action-gh-release@v2
+      with:
+        draft: true
+        files: 'btrace-dist/build/distributions/btrace-${{ steps.branch_name.outputs.SOURCE_TAG
+          }}-bin.tar.gz
+
+          btrace-dist/build/distributions/btrace-${{ steps.branch_name.outputs.SOURCE_TAG
+          }}-bin.zip
+
+          btrace-dist/build/distributions/btrace-${{ steps.branch_name.outputs.SOURCE_TAG
+          }}-sdkman-bin.zip
+
+          '
+        prerelease: false
+    - continue-on-error: true
+      env:
+        BTRACE_SONATYPE_PWD: ${{ secrets.BTRACE_SONATYPE_PWD }}
+        BTRACE_SONATYPE_USER: ${{ secrets.BTRACE_SONATYPE_USER }}
+        GPG_SIGNING_KEY: ${{ secrets.GPG_SIGNING_KEY }}
+        GPG_SIGNING_PWD: ${{ secrets.GPG_SIGNING_PWD }}
+      id: deploy_maven
+      name: Deploy Maven
+      run: './gradlew :btrace-dist:publishAllPublicationsToMavenRepository
+
+        '
+    - continue-on-error: true
+      env:
+        SDKMAN_API_TOKEN: ${{ secrets.SDKMAN_TOKEN }}
+        SKDMAN_API_KEY: ${{ secrets.SDKMAN_KEY }}
+      id: update_sdkman
+      name: Update SDKMan!
+      run: './gradlew :btrace-dist:sdkMinorRelease
+
+        '
+name: Create Release
+on:
+  repository_dispatch:
+    types: trigger-ga___release.yml
